@@ -1,0 +1,19 @@
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "hono-auth-service",
+    "main": "src/index.ts",
+    "compatibility_date": "2026-10-01",
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "hono-auth-db",
+            "database_id": "303eae59-c4b0-46fd-af26-0c2de0f7c6ba"
+        }
+    ],
+    "kv_namespaces": [
+        {
+            "binding": "AUTH_SESSIONS",
+            "id": "ed9e3f3616eb4f37bcf56ef4bd5e9091"
+        }
+    ]
+}
