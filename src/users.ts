@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { verifyToken } from './jwt'
+import { authMiddleware } from './middleware/authMiddleware'
 
 type Bindings = {
     DB: D1Database
@@ -7,48 +7,20 @@ type Bindings = {
     JWT_SECRET: string
 }
 
-export const users = new Hono<{ Bindings: Bindings }>()
+type Variables = {
+    userId: number
+}
 
-users.get('/me', async (c) => {
-    const authorization = c.req.header('Authorization')
+export const users = new Hono<{
+    Bindings: Bindings
+    Variables: Variables
+}>()
 
-    if (!authorization) {
-        return c.json(
-            {
-                success: false,
-                message: 'Authorization header is required'
-            },
-            401
-        )
-    }
-
-    const [scheme, token] = authorization.split(' ')
-
-    if (scheme !== 'Bearer' || !token) {
-        return c.json(
-            {
-                success: false,
-                message: 'Invalid authorization header'
-            },
-            401
-        )
-    }
-
-    try {
-        const payload = await verifyToken(
-            token,
-            c.env.JWT_SECRET
-        )
-
-        if (payload.type !== 'access' || !payload.sub) {
-            return c.json(
-                {
-                    success: false,
-                    message: 'Invalid access token'
-                },
-                401
-            )
-        }
+users.get(
+    '/me',
+    authMiddleware,
+    async (c) => {
+        const userId = c.get('userId')
 
         const user = await c.env.DB
             .prepare(
@@ -56,7 +28,7 @@ users.get('/me', async (c) => {
          FROM users
          WHERE id = ?`
             )
-            .bind(Number(payload.sub))
+            .bind(userId)
             .first()
 
         if (!user) {
@@ -73,14 +45,5 @@ users.get('/me', async (c) => {
             success: true,
             user
         })
-
-    } catch {
-        return c.json(
-            {
-                success: false,
-                message: 'Invalid or expired access token'
-            },
-            401
-        )
     }
-})
+)

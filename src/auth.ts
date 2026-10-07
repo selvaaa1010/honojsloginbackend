@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { createAccessToken, createRefreshToken, verifyToken } from './jwt'
 import { hashPassword, verifyPassword } from './password'
+import { authMiddleware } from './middleware/authMiddleware'
 
 type Bindings = {
     DB: D1Database
@@ -253,45 +254,83 @@ auth.post('/refresh', async (c) => {
 })
 
 
-auth.post('/logout', async (c) => {
-    const body = await c.req.json<{
-        refreshToken: string
-    }>()
+auth.post(
+    '/logout',
+    authMiddleware,
+    async (c) => {
+        const body = await c.req.json<{
+            refreshToken: string
+        }>()
 
-    if (!body.refreshToken) {
-        return c.json(
-            {
-                success: false,
-                message: 'Refresh token is required'
-            },
-            400
-        )
-    }
-
-    try {
-        const payload = await verifyToken(
-            body.refreshToken,
-            c.env.JWT_SECRET
-        )
-
-        if (payload.sessionId) {
-            await c.env.AUTH_SESSIONS.delete(
-                `session:${payload.sessionId}`
+        if (!body.refreshToken) {
+            return c.json(
+                {
+                    success: false,
+                    message: 'Refresh token is required'
+                },
+                400
             )
         }
 
-        return c.json({
-            success: true,
-            message: 'Logged out successfully'
-        })
+        try {
+            const accessUserId = c.get('userId')
 
-    } catch {
-        return c.json({
-            success: true,
-            message: 'Logged out successfully'
-        })
+            const payload = await verifyToken(
+                body.refreshToken,
+                c.env.JWT_SECRET
+            )
+
+            if (
+                payload.type !== 'refresh' ||
+                !payload.sub ||
+                !payload.sessionId
+            ) {
+                return c.json(
+                    {
+                        success: false,
+                        message: 'Invalid refresh token'
+                    },
+                    401
+                )
+            }
+
+            const refreshUserId = Number(payload.sub)
+
+            /*
+             * Make sure the refresh token belongs
+             * to the same user authenticated by
+             * the access token.
+             */
+            if (accessUserId !== refreshUserId) {
+                return c.json(
+                    {
+                        success: false,
+                        message: 'Refresh token does not belong to the authenticated user'
+                    },
+                    403
+                )
+            }
+
+            await c.env.AUTH_SESSIONS.delete(
+                `session:${payload.sessionId}`
+            )
+
+            return c.json({
+                success: true,
+                message: 'Logged out successfully'
+            })
+
+        } catch {
+            return c.json(
+                {
+                    success: false,
+                    message: 'Invalid or expired refresh token'
+                },
+                401
+            )
+        }
     }
-})
+)
 
 
 auth.post('/forgot-password', async (c) => {
