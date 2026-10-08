@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+
 import { auth } from './auth'
 import { users } from './users'
 
@@ -8,15 +9,36 @@ type Bindings = {
     JWT_SECRET: string
 }
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<{
+    Bindings: Bindings
+}>()
+
+
+/* =========================================================
+   HOME
+   ========================================================= */
 
 app.get('/', (c) => {
+
     return c.json({
-        message: 'Hono Auth Service is running'
+        success: true,
+        message: 'Hono Authentication API is running'
     })
 })
 
+
+/* =========================================================
+   AUTH ROUTES
+   ========================================================= */
+
 app.route('/auth', auth)
+
+
+/* =========================================================
+   USER ROUTES
+   ========================================================= */
+
 app.route('/users', users)
+
 
 export default app

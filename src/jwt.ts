@@ -2,14 +2,17 @@ import { sign, verify } from 'hono/jwt'
 
 export async function createAccessToken(
     userId: number,
-    secret: string
+    secret: string,
+    sessionId: string
 ): Promise<string> {
+
     const now = Math.floor(Date.now() / 1000)
 
     return sign(
         {
             sub: String(userId),
             type: 'access',
+            sessionId,
             iat: now,
             exp: now + 15 * 60
         },
@@ -22,6 +25,7 @@ export async function createRefreshToken(
     secret: string,
     sessionId: string
 ): Promise<string> {
+
     const now = Math.floor(Date.now() / 1000)
 
     return sign(
@@ -41,4 +45,4 @@ export async function verifyToken(
     secret: string
 ) {
     return verify(token, secret, 'HS256')
-} 
+}

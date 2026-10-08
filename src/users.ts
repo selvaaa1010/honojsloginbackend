@@ -9,6 +9,7 @@ type Bindings = {
 
 type Variables = {
     userId: number
+    sessionId: string
 }
 
 export const users = new Hono<{
@@ -16,17 +17,30 @@ export const users = new Hono<{
     Variables: Variables
 }>()
 
+
+/* =========================================================
+   GET CURRENT USER
+   ========================================================= */
+
 users.get(
     '/me',
     authMiddleware,
     async (c) => {
+
         const userId = c.get('userId')
 
         const user = await c.env.DB
             .prepare(
-                `SELECT id, name, email, created_at
-         FROM users
-         WHERE id = ?`
+                `
+                SELECT
+                    id,
+                    name,
+                    email,
+                    created_at,
+                    updated_at
+                FROM users
+                WHERE id = ?
+                `
             )
             .bind(userId)
             .first()

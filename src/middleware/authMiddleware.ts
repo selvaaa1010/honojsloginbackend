@@ -9,12 +9,14 @@ type Bindings = {
 
 type Variables = {
     userId: number
+    sessionId: string
 }
 
 export const authMiddleware = createMiddleware<{
     Bindings: Bindings
     Variables: Variables
 }>(async (c, next) => {
+
     const authorization = c.req.header('Authorization')
 
     if (!authorization) {
@@ -40,14 +42,19 @@ export const authMiddleware = createMiddleware<{
     }
 
     try {
+
+        // Verify access token
         const payload = await verifyToken(
             token,
             c.env.JWT_SECRET
         )
 
+        // Make sure this is an access token
+        // and contains userId and sessionId
         if (
             payload.type !== 'access' ||
-            !payload.sub
+            !payload.sub ||
+            !payload.sessionId
         ) {
             return c.json(
                 {
@@ -58,11 +65,37 @@ export const authMiddleware = createMiddleware<{
             )
         }
 
-        c.set('userId', Number(payload.sub))
+        // Check whether the session is still active
+        const session = await c.env.AUTH_SESSIONS.get(
+            `session:${payload.sessionId}`
+        )
+
+        if (!session) {
+            return c.json(
+                {
+                    success: false,
+                    message: 'Session expired or revoked'
+                },
+                401
+            )
+        }
+
+        // Store userId and sessionId
+        // so the protected route can use them
+        c.set(
+            'userId',
+            Number(payload.sub)
+        )
+
+        c.set(
+            'sessionId',
+            String(payload.sessionId)
+        )
 
         await next()
 
     } catch {
+
         return c.json(
             {
                 success: false,
